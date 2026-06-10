@@ -1,6 +1,8 @@
 -- Auto-fix schema drift: only resets if User table is missing required columns
--- This runs conditionally - safe to run on every deploy
+-- Drops individual tables instead of schema to avoid permission issues
 DO $$
+DECLARE
+  r RECORD;
 BEGIN
   -- Check if User table has the email column (indicates correct schema)
   IF NOT EXISTS (
@@ -10,17 +12,22 @@ BEGIN
       AND table_name = 'User'
       AND column_name = 'email'
   ) THEN
-    RAISE NOTICE 'Schema drift detected: User.email column missing. Resetting schema...';
+    RAISE NOTICE 'Schema drift detected. Dropping all tables...';
 
-    -- Drop all tables and recreate schema fresh
-    -- This also removes _prisma_migrations so migrate deploy will re-apply all migrations
-    DROP SCHEMA public CASCADE;
-    CREATE SCHEMA public;
+    -- Drop each table individually (including _prisma_migrations)
+    -- so migrate deploy will re-apply all migrations fresh
+    FOR r IN
+      SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+    LOOP
+      EXECUTE 'DROP TABLE IF EXISTS "' || r.tablename || '" CASCADE';
+      RAISE NOTICE 'Dropped table: %', r.tablename;
+    END LOOP;
 
-    RAISE NOTICE 'Schema reset complete. Migrations will be applied fresh.';
+    RAISE NOTICE 'All tables dropped. Migrations will be applied fresh.';
   ELSE
-    RAISE NOTICE 'Schema OK: no drift detected.';
+    RAISE NOTICE 'Schema OK: no drift detected, skipping reset.';
   END IF;
 END
 $$;
+
 
