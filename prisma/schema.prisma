@@ -1,0 +1,562 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+// User Model with RBAC Support
+model User {
+  id               String            @id @default(uuid())
+  name             String?
+  email            String            @unique
+  password         String?           // Nullable: Google users may not have a password
+  avatar           String?           @default("/avatars/default.png")
+  image            String?           // OAuth provider avatar URL (used by NextAuth adapter)
+  role             String            @default("USER") // ADMIN, MODERATOR, DATA_ENTRY, USER
+  googleId         String?           @unique // Google sub ID for OAuth
+  emailVerified    DateTime?         // Required by NextAuth adapter
+  suspended        Boolean           @default(false) // Admin can suspend users
+  lastLoginAt      DateTime?         // Track last login time
+  ownedCharacters  String            @default("[]")
+  ownedSupports    String            @default("[]")
+  jewels           Int               @default(3000) // Default starting jewels
+  tickets          Int               @default(5)
+  ssrTickets       Int               @default(1)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  trainingSessions TrainingSession[]
+  savedBuilds      SavedBuild[]
+  charDrafts       CharacterDraft[]
+  supportDrafts    SupportCardDraft[]
+  skillDrafts      SkillDraft[]
+  raceDrafts       RaceDraft[]
+  scenarioDrafts   ScenarioDraft[]
+  tagDrafts        TagDraft[]
+  categoryDrafts   CategoryDraft[]
+  guides           CommunityGuide[]
+  auditLogs        AuditLog[]
+  eventDrafts      EventDraft[]
+  bannerDrafts     BannerDraft[]
+  accounts         Account[]
+  sessions         Session[]
+}
+
+// ===  NEXTAUTH ADAPTER TABLES ===
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// === LIVE PRODUCTION TABLES ===
+
+model Character {
+  id               String            @id
+  name             String
+  japaneseName     String?
+  alias            String?
+  description      String?
+  birthday         String?
+  height           String?
+  weight           String?
+  cv               String?           // Voice Actor
+  rarity           Int
+  growthSpeed      Int               @default(0)
+  growthStamina    Int               @default(0)
+  growthPower      Int               @default(0)
+  growthGuts       Int               @default(0)
+  growthWisdom     Int               @default(0)
+  sprint           String            @default("G") // Aptitude rankings: S, A, B, C, D, E, F, G
+  mile             String            @default("G")
+  medium           String            @default("G")
+  long             String            @default("G")
+  front            String            @default("G") // Running style suitability
+  leader           String            @default("G")
+  betweener        String            @default("G")
+  chaser           String            @default("G")
+  imageThumbnail   String?           @default("/characters/default-thumb.png")
+  imageArtwork     String?
+  imageIcon        String?
+  uniqueSkillId    String?
+  uniqueSkill      Skill?            @relation("CharUniqueSkill", fields: [uniqueSkillId], references: [id])
+  skills           Skill[]           @relation("CharSkills")
+  events           String?           // JSON choices list
+  status           String            @default("ACTIVE") // ACTIVE, ARCHIVED
+  trainingSessions TrainingSession[]
+  savedBuilds      SavedBuild[]
+  versions         VersionHistory[]  @relation("CharVersions")
+}
+
+model SupportCard {
+  id              String   @id
+  name            String
+  description     String?
+  rarity          String   // R, SR, SSR
+  type            String   // Speed, Stamina, Power, Guts, Wisdom, Group, Friend
+  trainingBonus   Int      @default(0)
+  friendshipBonus Int      @default(0)
+  raceBonus       Int      @default(0)
+  fanBonus        Int      @default(0)
+  hintLevelBonus  Int      @default(0)
+  initialBond     Int      @default(0)
+  effects         String?  // JSON detail list
+  events          String?  // JSON choices list
+  skills          Skill[]  @relation("CardSkills")
+  imageThumbnail  String?  @default("/supports/default-thumb.png")
+  imageArtwork    String?
+  status          String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  versions        VersionHistory[] @relation("CardVersions")
+}
+
+model Skill {
+  id                  String      @id
+  name                String
+  description         String
+  cost                Int         @default(120)
+  tier                String      @default("B") // S, A, B, C, D
+  category            String      // Speed, Stamina, Acceleration, Recovery, Passive, Debuff, Start
+  trigger             String      @default("Any")
+  distanceRequirement String      @default("Any")
+  styleRequirement    String      @default("Any")
+  iconUrl             String?
+  characters          Character[] @relation("CharSkills")
+  uniqueChars         Character[] @relation("CharUniqueSkill")
+  supportCards        SupportCard[] @relation("CardSkills")
+  status              String      @default("ACTIVE") // ACTIVE, ARCHIVED
+  versions            VersionHistory[] @relation("SkillVersions")
+}
+
+model Race {
+  id             String   @id
+  name           String
+  distance       Int      // in meters
+  groundType     String   // Turf or Dirt
+  season         String   // Spring, Summer, Autumn, Winter
+  grade          String   // G1, G2, G3, Pre-OP, OP
+  fanRequirement Int      @default(0)
+  direction      String   @default("Clockwise")
+  weather        String?  @default("Sunny")
+  surface        String?  @default("Good")
+  status         String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  versions       VersionHistory[] @relation("RaceVersions")
+}
+
+model Scenario {
+  id          String   @id
+  name        String
+  description String?
+  releaseDate String?
+  status      String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  versions    VersionHistory[] @relation("ScenarioVersions")
+}
+
+model Tag {
+  id       String   @id
+  name     String
+  status   String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  versions VersionHistory[] @relation("TagVersions")
+}
+
+model Category {
+  id       String   @id
+  name     String
+  status   String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  versions VersionHistory[] @relation("CategoryVersions")
+}
+
+// === CMS DRAFT TABLES ===
+
+model CharacterDraft {
+  id             String         @id @default(uuid())
+  status         String         @default("DRAFT") // DRAFT, PENDING_REVIEW, APPROVED, REJECTED, PUBLISHED, ARCHIVED
+  reviewNotes    String?
+  contributorId  String
+  contributor    User           @relation(fields: [contributorId], references: [id])
+  liveId         String?        // Links to Character.id if updating existing
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  name           String
+  japaneseName   String?
+  alias          String?
+  description    String?
+  birthday       String?
+  height         String?
+  weight         String?
+  cv             String?
+  rarity         Int
+  growthSpeed    Int            @default(0)
+  growthStamina  Int            @default(0)
+  growthPower    Int            @default(0)
+  growthGuts     Int            @default(0)
+  growthWisdom   Int            @default(0)
+  sprint         String         @default("G")
+  mile           String         @default("G")
+  medium         String         @default("G")
+  long           String         @default("G")
+  front          String         @default("G")
+  leader         String         @default("G")
+  betweener      String         @default("G")
+  chaser         String         @default("G")
+  imageThumbnail String?
+  imageArtwork   String?
+  imageIcon      String?
+  events         String?
+}
+
+model SupportCardDraft {
+  id              String        @id @default(uuid())
+  status          String        @default("DRAFT") // DRAFT, PENDING_REVIEW, APPROVED, REJECTED, PUBLISHED, ARCHIVED
+  reviewNotes     String?
+  contributorId   String
+  contributor     User          @relation(fields: [contributorId], references: [id])
+  liveId          String?       // Links to SupportCard.id if updating
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  name            String
+  description     String?
+  rarity          String
+  type            String
+  trainingBonus   Int           @default(0)
+  friendshipBonus Int           @default(0)
+  raceBonus       Int           @default(0)
+  fanBonus        Int           @default(0)
+  hintLevelBonus  Int           @default(0)
+  initialBond     Int           @default(0)
+  effects         String?
+  events          String?
+  imageThumbnail  String?
+  imageArtwork    String?
+}
+
+model SkillDraft {
+  id                  String        @id @default(uuid())
+  status              String        @default("DRAFT") // DRAFT, PENDING_REVIEW, APPROVED, REJECTED, PUBLISHED, ARCHIVED
+  reviewNotes         String?
+  contributorId       String
+  contributor         User          @relation(fields: [contributorId], references: [id])
+  liveId              String?       // Links to Skill.id if updating
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  name                String
+  description         String
+  cost                Int           @default(120)
+  tier                String        @default("B")
+  category            String
+  trigger             String        @default("Any")
+  distanceRequirement String        @default("Any")
+  styleRequirement    String        @default("Any")
+}
+
+model RaceDraft {
+  id             String         @id @default(uuid())
+  status         String         @default("DRAFT") // DRAFT, PENDING_REVIEW, APPROVED, REJECTED, PUBLISHED, ARCHIVED
+  reviewNotes    String?
+  contributorId  String
+  contributor    User           @relation(fields: [contributorId], references: [id])
+  liveId         String?        // Links to Race.id if updating
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  name           String
+  distance       Int
+  groundType     String
+  season         String
+  grade          String
+  fanRequirement Int            @default(0)
+  direction      String         @default("Clockwise")
+}
+
+model ScenarioDraft {
+  id            String   @id @default(uuid())
+  status        String   @default("DRAFT") // DRAFT, PENDING_REVIEW, APPROVED, REJECTED, PUBLISHED, ARCHIVED
+  reviewNotes   String?
+  contributorId String
+  contributor   User     @relation(fields: [contributorId], references: [id])
+  liveId        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  name          String
+  description   String?
+  releaseDate   String?
+}
+
+model TagDraft {
+  id            String   @id @default(uuid())
+  status        String   @default("DRAFT") // DRAFT, PENDING_REVIEW, APPROVED, REJECTED, PUBLISHED, ARCHIVED
+  reviewNotes   String?
+  contributorId String
+  contributor   User     @relation(fields: [contributorId], references: [id])
+  liveId        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  name          String
+}
+
+model CategoryDraft {
+  id            String   @id @default(uuid())
+  status        String   @default("DRAFT") // DRAFT, PENDING_REVIEW, APPROVED, REJECTED, PUBLISHED, ARCHIVED
+  reviewNotes   String?
+  contributorId String
+  contributor   User     @relation(fields: [contributorId], references: [id])
+  liveId        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  name          String
+}
+
+// === LOGGING & VERSIONING TABLES ===
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String   // CREATE, UPDATE, DELETE, RESTORE, BULK_ACTION, IMPORT, EXPORT
+  entity    String   // Character, SupportCard, Skill, Race, Scenario, Tag, Category, Guide, SavedBuild
+  entityId  String
+  before    String?  // JSON string
+  after     String?  // JSON string
+  ipAddress String?
+  timestamp DateTime @default(now())
+}
+
+model VersionHistory {
+  id          String       @id @default(uuid())
+  entityType  String       // Character, SupportCard, Skill, Race, Scenario, Tag, Category, Guide, SavedBuild
+  entityId    String
+  version     Int
+  snapshot    String       // JSON string of all fields
+  comment     String?
+  createdAt   DateTime     @default(now())
+
+  // Optional relations
+  character   Character?   @relation("CharVersions", fields: [charId], references: [id], onDelete: Cascade)
+  charId      String?
+  supportCard SupportCard? @relation("CardVersions", fields: [cardId], references: [id], onDelete: Cascade)
+  cardId      String?
+  skill       Skill?       @relation("SkillVersions", fields: [skillId], references: [id], onDelete: Cascade)
+  skillId     String?
+  race        Race?        @relation("RaceVersions", fields: [raceId], references: [id], onDelete: Cascade)
+  raceId      String?
+  scenario    Scenario?    @relation("ScenarioVersions", fields: [scenarioId], references: [id], onDelete: Cascade)
+  scenarioId  String?
+  tag         Tag?         @relation("TagVersions", fields: [tagId], references: [id], onDelete: Cascade)
+  tagId       String?
+  category    Category?    @relation("CategoryVersions", fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  event       Event?       @relation("EventVersions", fields: [eventId], references: [id], onDelete: Cascade)
+  eventId     String?
+  banner      Banner?      @relation("BannerVersions", fields: [bannerId], references: [id], onDelete: Cascade)
+  bannerId    String?
+}
+
+// === COMMUNITY & USER TABLES ===
+
+model CommunityGuide {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  category  String   // Training, Build, Scenarios, Newbie
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes     Int      @default(0)
+  bookmarks Int      @default(0)
+  status    String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TrainingSession {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  characterId  String
+  character    Character @relation(fields: [characterId], references: [id])
+  scenario     String
+  currentTurn  Int
+  motivation   String
+  energy       Int
+  speed        Int       @default(120)
+  stamina      Int       @default(120)
+  power        Int       @default(120)
+  guts         Int       @default(120)
+  wisdom       Int       @default(120)
+  status       String    @default("IN_PROGRESS")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model SavedBuild {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  characterId  String
+  character    Character @relation(fields: [characterId], references: [id])
+  title        String
+  distance     String
+  style        String
+  targetSpeed  Int
+  targetStam   Int
+  targetPower  Int
+  targetGuts   Int
+  targetWisdom Int       @default(120) // using simple default
+  skills       String
+  likes        Int       @default(0)
+  isPublic     Boolean   @default(false)
+  status       String    @default("ACTIVE") // ACTIVE, ARCHIVED
+  createdAt    DateTime  @default(now())
+}
+
+model Event {
+  id             String   @id
+  name           String
+  eventType      String   // CHAMPION_MEETING, LEAGUE_OF_HEROES, STORY_EVENT, CAMPAIGN, LOGIN_BONUS, GACHA_BANNER
+  startDate      DateTime
+  endDate        DateTime
+  description    String?
+  eventStatus    String   @default("ACTIVE") // UPCOMING, ACTIVE, ENDED
+  status         String   @default("ACTIVE") // ACTIVE, ARCHIVED
+
+  // Optional race details for CM/LOH
+  distance       Int?
+  groundType     String?
+  weather        String?
+  trackCondition String?
+  direction      String?
+  location       String?
+  season         String?
+
+  versions       VersionHistory[] @relation("EventVersions")
+}
+
+model EventDraft {
+  id             String   @id @default(uuid())
+  status         String   @default("DRAFT") // DRAFT, PENDING_REVIEW, APPROVED, REJECTED, PUBLISHED, ARCHIVED
+  reviewNotes    String?
+  contributorId  String
+  contributor    User     @relation(fields: [contributorId], references: [id])
+  liveId         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  name           String
+  eventType      String
+  startDate      DateTime
+  endDate        DateTime
+  description    String?
+  
+  // Optional race details for CM/LOH
+  distance       Int?
+  groundType     String?
+  weather        String?
+  trackCondition String?
+  direction      String?
+  location       String?
+  season         String?
+}
+
+model EventMetaBuild {
+  id             String   @id
+  eventId        String
+  characterId    String
+  buildStats     String   // JSON string
+  skillPriority  String   // JSON string
+  supportDeck    String   // JSON string
+  rating         String   @default("A") // S, A, B, etc.
+  status         String   @default("ACTIVE")
+}
+
+model EventMetaBuildDraft {
+  id             String   @id @default(uuid())
+  status         String   @default("DRAFT")
+  reviewNotes    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  eventId        String
+  characterId    String
+  buildStats     String
+  skillPriority  String
+  supportDeck    String
+  rating         String   @default("A")
+}
+
+model Banner {
+  id              String   @id
+  name            String
+  bannerType      String   // CHARACTER, SUPPORT
+  startDate       DateTime
+  endDate         DateTime
+  featuredContent String?
+  rateUpContent   String?  // JSON list
+  status          String   @default("ACTIVE")
+
+  versions        VersionHistory[] @relation("BannerVersions")
+}
+
+model BannerDraft {
+  id              String   @id @default(uuid())
+  status          String   @default("DRAFT") // DRAFT, PENDING_REVIEW, APPROVED, REJECTED, PUBLISHED, ARCHIVED
+  reviewNotes     String?
+  contributorId   String
+  contributor     User     @relation(fields: [contributorId], references: [id])
+  liveId          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  name            String
+  bannerType      String
+  startDate       DateTime
+  endDate         DateTime
+  featuredContent String?
+  rateUpContent   String?
+}
+
+model EventSubscription {
+  id               String   @id @default(uuid())
+  userId           String
+  subscriptionType String   // CHAMPION_MEETING, LEAGUE_OF_HEROES, BANNER, SCENARIO
+  eventId          String?
+  remindBefore     Int      // 1, 3, or 7 days
+  createdAt        DateTime @default(now())
+}
+
