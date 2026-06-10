@@ -16,8 +16,6 @@ BEGIN
     -- This also removes _prisma_migrations so migrate deploy will re-apply all migrations
     DROP SCHEMA public CASCADE;
     CREATE SCHEMA public;
-    GRANT ALL ON SCHEMA public TO postgres;
-    GRANT ALL ON SCHEMA public TO public;
 
     RAISE NOTICE 'Schema reset complete. Migrations will be applied fresh.';
   ELSE
@@ -25,3 +23,4 @@ BEGIN
   END IF;
 END
 $$;
+
