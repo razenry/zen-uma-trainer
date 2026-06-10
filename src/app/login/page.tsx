@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Link from 'next/link'
-import { Shield, User, HelpCircle, Gamepad2, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
+import { HelpCircle, Gamepad2, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address' }),
@@ -123,10 +123,6 @@ function LoginContent() {
     }
   }
 
-  const fillCredentials = (email: string, pass: string) => {
-    setValue('email', email)
-    setValue('password', pass)
-  }
 
   const isAnyLoading = loading || googleLoading || guestLoading
   const justRegistered = searchParams.get('registered') === '1'
@@ -276,34 +272,7 @@ function LoginContent() {
             )}
           </button>
 
-          {/* Dev Quick Fills */}
-          <div className="mt-5 p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/50">
-            <div className="text-xs font-semibold text-violet-400 mb-2 uppercase tracking-wider">Dev Quick Access</div>
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={() => fillCredentials('user@zenuma.com', 'userpassword')}
-                className="w-full flex items-center justify-between p-2 rounded-lg bg-zinc-950/50 hover:bg-zinc-900 border border-zinc-800/50 text-left text-xs transition-all cursor-pointer"
-              >
-                <div className="flex items-center gap-2 text-zinc-300">
-                  <User className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>User Mode</span>
-                </div>
-                <span className="text-[10px] text-zinc-500">user@zenuma.com</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => fillCredentials('admin@zenuma.com', 'adminpassword')}
-                className="w-full flex items-center justify-between p-2 rounded-lg bg-zinc-950/50 hover:bg-zinc-900 border border-zinc-800/50 text-left text-xs transition-all cursor-pointer"
-              >
-                <div className="flex items-center gap-2 text-zinc-300">
-                  <Shield className="w-3.5 h-3.5 text-violet-400" />
-                  <span>Admin Mode</span>
-                </div>
-                <span className="text-[10px] text-zinc-500">admin@zenuma.com</span>
-              </button>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>
