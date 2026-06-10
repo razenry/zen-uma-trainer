@@ -612,7 +612,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "C:\\Users\\Kafka\\.gemini\\antigravity\\scratch\\zen-uma-trainer\\src\\generated\\client",
+      "value": "C:\\Users\\04LAB007\\Documents\\Razenry\\zen-uma-trainer\\src\\generated\\client",
       "fromEnvVar": null
     },
     "config": {
@@ -626,12 +626,11 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "C:\\Users\\Kafka\\.gemini\\antigravity\\scratch\\zen-uma-trainer\\prisma\\schema.prisma",
+    "sourceFilePath": "C:\\Users\\04LAB007\\Documents\\Razenry\\zen-uma-trainer\\prisma\\schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
-    "rootEnvPath": null,
-    "schemaEnvPath": "../../../.env"
+    "rootEnvPath": null
   },
   "relativePath": "../../../prisma",
   "clientVersion": "6.19.3",
