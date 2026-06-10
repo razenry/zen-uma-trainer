@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "prisma migrate deploy && next build",
+    "build": "prisma db execute --file=prisma/fix-schema-drift.sql --schema=prisma/schema.prisma && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint",
     "type-check": "tsc --noEmit",
